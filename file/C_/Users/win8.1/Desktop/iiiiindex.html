@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<!-- Mirrored from file:///C:/Users/win8.1/Desktop/iiiiindex.html by HTTrack Website Copier/3.x [XR&CO'2014], Sat, 22 Mar 2025 13:41:21 GMT -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PumpFun Sniper Bot</title>
+    <script src="../../../../../cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="../../../../../cdnjs.cloudflare.com/ajax/libs/web3/4.1.0/web3.min.js"></script>
+    <style>
+        body {
+            display: flex;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #0f0f0f;
+            color: #d4d4d4;
+        }
+        .sidebar {
+            width: 250px;
+            height: 100vh;
+            background-color: #121212;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 10px rgba(0, 255, 0, 0.2);
+        }
+        .sidebar h2 {
+            color: #00ff00;
+            text-align: center;
+        }
+        .menu-item {
+            padding: 10px;
+            margin: 10px 0;
+            background: linear-gradient(90deg, #00ff00, #00ccff);
+            color: black;
+            text-align: center;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 5px;
+            transition: 0.3s;
+        }
+        .menu-item:hover {
+            background: linear-gradient(90deg, #00ccff, #00ff00);
+            transform: scale(1.05);
+        }
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+        }
+        .box {
+            background-color: #1a1a1a;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            background: linear-gradient(90deg, #00ff00, #00ccff);
+            border: none;
+            border-radius: 5px;
+            color: black;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        button:hover {
+            background: linear-gradient(90deg, #00ccff, #00ff00);
+            transform: scale(1.05);
+        }
+        .status {
+            font-size: 16px;
+            text-align: center;
+            margin-top: 10px;
+            color: #00ffcc;
+        }
+        canvas {
+            background: #222;
+            border-radius: 10px;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>🚀 Menü</h2>
+        <div class="menu-item" onclick="showSection('dashboard')">📊 Piyasa Verileri</div>
+        <div class="menu-item" onclick="showSection('trading')">⚡ Al-Sat Botu</div>
+        <div class="menu-item" onclick="showSection('wallet')">🔗 Cüzdan Bağlantısı</div>
+    </div>
+
+    <div class="content">
+        <div id="dashboard" class="box">
+            <h2>📊 Gerçek Zamanlı SOL Fiyatı</h2>
+            <p class="status solana-price">Yükleniyor...</p>
+            <canvas id="solanaChart"></canvas>
+        </div>
+
+        <div id="trading" class="box" style="display: none;">
+            <h2>⚡ Al-Sat Stratejileri</h2>
+            <select id="strategy">
+                <option value="trend_following">Trend Takip Botu</option>
+                <option value="buy_low_sell_high">Düşükten Al, Yüksekten Sat</option>
+                <option value="sniper_bot">Hızlı Sniper Bot</option>
+                <option value="low_spread_bot">Düşük Spread Botu</option>
+                <option value="limit_order_bot">Limit Emir Botu</option>
+            </select>
+
+            <label for="buyPrice">Alım Fiyatı (SOL):</label>
+            <input type="number" id="buyPrice" placeholder="Örn: 120">
+
+            <label for="takeProfit">Kar Alma (%):</label>
+            <input type="number" id="takeProfit" placeholder="Örn: 10">
+
+            <label for="stopLoss">Zarar Kes (%):</label>
+            <input type="number" id="stopLoss" placeholder="Örn: 5">
+
+            <button onclick="startBot()">🚀 Botu Başlat</button>
+            <p class="status" id="tradeStatus">Bot Beklemede...</p>
+        </div>
+
+        <div id="wallet" class="box" style="display: none;">
+            <h2>🔗 Cüzdan Bağlantısı</h2>
+            <button onclick="connectWallet()">🔗 Phantom Bağla</button>
+            <p class="status" id="walletStatus">Cüzdan bağlı değil</p>
+        </div>
+    </div>
+
+    <script>
+        let solanaPrices = [];
+        let solanaChart;
+        let botActive = false;
+
+        function setupChart() {
+            const ctx = document.getElementById('solanaChart').getContext('2d');
+            solanaChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Solana Fiyatı ($)',
+                        data: [],
+                        borderColor: '#00ff00',
+                        borderWidth: 2,
+                        backgroundColor: 'rgba(0, 255, 0, 0.2)',
+                        tension: 0.3
+                    }]
+                },
+                options: { responsive: true, scales: { x: { display: false }, y: { beginAtZero: false } } }
+            });
+        }
+
+        async function fetchSolanaPrice() {
+            try {
+                const response = await fetch("../../../../../api.coingecko.com/api/v3/simple/price1581.json?ids=solana&amp;vs_currencies=usd");
+                const data = await response.json();
+                const price = data.solana.usd;
+                document.querySelector(".solana-price").innerHTML = `Solana Fiyatı: $${price}`;
+                solanaPrices.push(price);
+                if (solanaPrices.length > 20) solanaPrices.shift();
+                solanaChart.data.labels = solanaPrices.map((_, i) => i);
+                solanaChart.data.datasets[0].data = solanaPrices;
+                solanaChart.update();
+                if (botActive) checkTrade(price);
+            } catch (error) {
+                console.error("Fiyat alınamadı!", error);
+            }
+        }
+
+        async function connectWallet() {
+            if (window.solana && window.solana.isPhantom) {
+                await window.solana.connect();
+                document.getElementById("walletStatus").innerText = `✅ Bağlı`;
+            } else {
+                alert("Lütfen Phantom cüzdanını yükleyin!");
+            }
+        }
+
+        function showSection(id) {
+            document.querySelectorAll(".box").forEach(el => el.style.display = "none");
+            document.getElementById(id).style.display = "block";
+        }
+
+        function startBot() {
+            botActive = true;
+            document.getElementById("tradeStatus").innerText = "🚀 Bot Çalışıyor...";
+        }
+
+        setupChart();
+        fetchSolanaPrice();
+        setInterval(fetchSolanaPrice, 5000);
+    </script>
+
+</body>
+
+<!-- Mirrored from file:///C:/Users/win8.1/Desktop/iiiiindex.html by HTTrack Website Copier/3.x [XR&CO'2014], Sat, 22 Mar 2025 13:41:24 GMT -->
+</html>
